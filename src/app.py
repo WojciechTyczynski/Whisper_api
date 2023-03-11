@@ -77,7 +77,7 @@ async def main():
 
 # Define endpoint to transcribe a file
 @app.post("/transcribe/")
-def transcribe_file(
+async def transcribe_file(
     audio_files: list[UploadFile] = File()
 ):
     """

@@ -94,7 +94,7 @@ async def transcribe_file(
         The audio/video file like objects
     Returns
     -------
-
+    A list of Transcription objects containing the file name, transcribed text, segments, and language
     """
     responses = []
     for audio_file in audio_files:

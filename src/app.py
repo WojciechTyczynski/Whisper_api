@@ -97,7 +97,6 @@ async def transcribe_file(
 
     """
     responses = []
-    tasks = []
     for audio_file in audio_files:
         logger.info(f"File loaded: {audio_file.filename}")
         logger.info(f"Converting audio file...")
@@ -111,9 +110,6 @@ async def transcribe_file(
             text=transcribtion['text'],
             language=transcribtion['language']
         ))
-    # for audio_file in audio_files:
-    #     task = asyncio.ensure_future(model.transcribe(_load_audio_file(audio_file.file)))
-    #     tasks.append(task)
     return TranscriptionList(transcriptions=responses)
 
 

@@ -1,19 +1,22 @@
 from typing import BinaryIO, Union
 import ffmpeg
 import numpy as np
-import pandas as pd
 import uvicorn
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import HTMLResponse
 from loguru import logger
-from omegaconf import OmegaConf
+import asyncio
 import whisper
+from pydantic import BaseModel
 
 # import utilities as ut
 # from config import api_config
 
+app = FastAPI()
 
 SAMPLE_RATE=16000
+
+# Load whisper model
 model = whisper.load_model('tiny')
 
 def _load_audio_file(file: BinaryIO, sr: int = SAMPLE_RATE):
@@ -43,7 +46,17 @@ def _load_audio_file(file: BinaryIO, sr: int = SAMPLE_RATE):
 
     return np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
 
-app = FastAPI()
+
+# Define response model
+class Transcription(BaseModel):
+    file: str
+    segments: list
+    text: str
+    language: str
+
+class TranscriptionList(BaseModel):
+    transcriptions: list[Transcription]
+
 
 # Define health endpoint
 @app.get('/health')
@@ -67,13 +80,6 @@ async def main():
     """
     return HTMLResponse(content=content)
 
-# @app.get('/greet', status_code=200)
-# def say_hello():
-#     return api_config.greet_message
-
-# @app.get('/config', status_code=200)
-# def get_config():
-#     return {'config': OmegaConf.to_container(api_config)}
 
 # Define endpoint to transcribe a file
 @app.post("/transcribe/")
@@ -90,7 +96,8 @@ async def transcribe_file(
     -------
 
     """
-    response = {}
+    responses = []
+    tasks = []
     for audio_file in audio_files:
         logger.info(f"File loaded: {audio_file.filename}")
         logger.info(f"Converting audio file...")
@@ -98,11 +105,17 @@ async def transcribe_file(
         logger.info(f"Audio file converted")
         logger.info(f"Transcribing audio file...")
         transcribtion = model.transcribe(audio)
-        df = pd.DataFrame(transcribtion['segments'])
-        results = df[['start', 'end', 'text']].to_dict('dict')
-        # results = ut.load_audio_file(audio_file.file)
-        response[audio_file.filename] = results
-    return response
+        responses.append(Transcription(
+            file=audio_file.filename,
+            segments=transcribtion['segments'],
+            text=transcribtion['text'],
+            language=transcribtion['language']
+        ))
+    # for audio_file in audio_files:
+    #     task = asyncio.ensure_future(model.transcribe(_load_audio_file(audio_file.file)))
+    #     tasks.append(task)
+    return TranscriptionList(transcriptions=responses)
+
 
 @app.post("/uploadfile/")
 async def create_upload_file(file: UploadFile):

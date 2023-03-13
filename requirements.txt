@@ -1,0 +1,10 @@
+fastapi>=0.68.0,<0.69.0
+pydantic>=1.8.0,<2.0.0
+uvicorn>=0.15.0,<0.16.0
+ffmpeg-python==0.2.0
+loguru==0.6.0
+numpy
+torch==1.13.1
+torchaudio==0.13.1
+whisper-openai
+python-multipart

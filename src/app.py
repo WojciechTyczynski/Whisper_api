@@ -5,7 +5,7 @@ import uvicorn
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import HTMLResponse
 from loguru import logger
-import asyncio
+
 import whisper
 from pydantic import BaseModel
 
@@ -84,7 +84,7 @@ async def main():
 # Define endpoint to transcribe a file
 @app.post("/transcribe/")
 async def transcribe_file(
-    audio_files: list[UploadFile] = File()
+    audio_files: list[UploadFile] = File(...)
 ):
     """
     Transcribe a list of audio/video files
@@ -114,10 +114,10 @@ async def transcribe_file(
 
 
 @app.post("/uploadfile/")
-async def create_upload_file(file: UploadFile):
+async def create_upload_file(file: UploadFile = File(...)):
     return {"filename": file.filename}
 
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="localhost", port=8000)
+    uvicorn.run(app, host="localhost", port=8000, workers=4)

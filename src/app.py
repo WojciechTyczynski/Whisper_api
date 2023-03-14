@@ -1,4 +1,4 @@
-from typing import BinaryIO, Union
+from typing import BinaryIO
 import ffmpeg
 import numpy as np
 import uvicorn
@@ -14,15 +14,17 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
-SAMPLE_RATE=16000
+SAMPLE_RATE = 16000
 
 # Load whisper model
-model = whisper.load_model('tiny')
+model = whisper.load_model("tiny")
+
 
 def _load_audio_file(file: BinaryIO, sr: int = SAMPLE_RATE):
     """
     Open an audio file object and read as mono waveform, resampling as necessary.
-    Modified from https://github.com/openai/whisper/blob/main/whisper/audio.py to accept a file object
+    Modified from https://github.com/openai/whisper/blob/main/whisper/audio.py
+    to accept a file object
     Parameters
     ----------
     file: BinaryIO
@@ -39,7 +41,12 @@ def _load_audio_file(file: BinaryIO, sr: int = SAMPLE_RATE):
         out, _ = (
             ffmpeg.input("pipe:", threads=0)
             .output("-", format="s16le", acodec="pcm_s16le", ac=1, ar=sr)
-            .run(cmd="ffmpeg", capture_stdout=True, capture_stderr=True, input=file.read())
+            .run(
+                cmd="ffmpeg",
+                capture_stdout=True,
+                capture_stderr=True,
+                input=file.read(),
+            )
         )
     except ffmpeg.Error as e:
         raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
@@ -54,14 +61,16 @@ class Transcription(BaseModel):
     text: str
     language: str
 
+
 class TranscriptionList(BaseModel):
     transcriptions: list[Transcription]
 
 
 # Define health endpoint
-@app.get('/health')
+@app.get("/health")
 def health():
-    return {'status': 'ok'}
+    return {"status": "ok"}
+
 
 # Define root endpoint
 @app.get("/")
@@ -83,9 +92,7 @@ async def main():
 
 # Define endpoint to transcribe a file
 @app.post("/transcribe/")
-async def transcribe_file(
-    audio_files: list[UploadFile] = File(...)
-):
+async def transcribe_file(audio_files: list[UploadFile] = File(...)):
     """
     Transcribe a list of audio/video files
     Parameters
@@ -94,29 +101,31 @@ async def transcribe_file(
         The audio/video file like objects
     Returns
     -------
-    A list of Transcription objects containing the file name, transcribed text, segments, and language
+    A list of Transcription objects containing the file name,
+    transcribed text, segments, and language
     """
     responses = []
     for audio_file in audio_files:
-        logger.info(f"File loaded: {audio_file.filename}")
-        logger.info(f"Converting audio file...")
+        logger.info(f'{"File loaded: "}{audio_file.filename}')
+        logger.info('Converting audio file...')
         audio = _load_audio_file(audio_file.file)
-        logger.info(f"Audio file converted")
-        logger.info(f"Transcribing audio file...")
+        logger.info("Audio file converted")
+        logger.info("Transcribing audio file...")
         transcribtion = model.transcribe(audio)
-        responses.append(Transcription(
-            file=audio_file.filename,
-            segments=transcribtion['segments'],
-            text=transcribtion['text'],
-            language=transcribtion['language']
-        ))
+        responses.append(
+            Transcription(
+                file=audio_file.filename,
+                segments=transcribtion["segments"],
+                text=transcribtion["text"],
+                language=transcribtion["language"],
+            )
+        )
     return TranscriptionList(transcriptions=responses)
 
 
 @app.post("/uploadfile/")
 async def create_upload_file(file: UploadFile = File(...)):
     return {"filename": file.filename}
-
 
 
 if __name__ == "__main__":

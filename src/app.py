@@ -1,20 +1,19 @@
-from typing import BinaryIO
+from typing import BinaryIO, List
 import ffmpeg
 import numpy as np
 import uvicorn
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse
 from loguru import logger
-
+import os
 import whisper
-from pydantic import BaseModel
 
-# import utilities as ut
-# from config import api_config
+from models import *
 
 app = FastAPI()
 
 SAMPLE_RATE = 16000
+SHARED_FOLDER = "E:\Whisper\Whisper_api\shared"
 
 # Load whisper model
 model = whisper.load_model("tiny")
@@ -54,18 +53,6 @@ def _load_audio_file(file: BinaryIO, sr: int = SAMPLE_RATE):
     return np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
 
 
-# Define response model
-class Transcription(BaseModel):
-    file: str
-    segments: list
-    text: str
-    language: str
-
-
-class TranscriptionList(BaseModel):
-    transcriptions: list[Transcription]
-
-
 # Define health endpoint
 @app.get("/health")
 def health():
@@ -92,7 +79,7 @@ async def main():
 
 # Define endpoint to transcribe a file
 @app.post("/transcribe/")
-async def transcribe_file(audio_files: list[UploadFile] = File(...)):
+async def transcribe_file(audio_files: List[UploadFile] = File(...)):
     """
     Transcribe a list of audio/video files
     Parameters
@@ -122,6 +109,29 @@ async def transcribe_file(audio_files: list[UploadFile] = File(...)):
         )
     return TranscriptionList(transcriptions=responses)
 
+# gets path to lokale file and returns transcription
+@app.post("/transcribe/localfile/")
+async def transcribe_local_file(localfile: str) -> WhisperTranscription:
+    """
+    Transcribe an audio file saved on shared drive
+    Parameters
+    ----------
+    localfile: str
+        The path to the audio file
+    Returns
+    -------
+    A whisper transcription object
+    """    
+    path = os.path.join(SHARED_FOLDER, localfile)
+
+    # check if file exists
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    transcribtion =  model.transcribe(path)
+    return transcribtion
+
+
 
 @app.post("/uploadfile/")
 async def create_upload_file(file: UploadFile = File(...)):
@@ -129,4 +139,4 @@ async def create_upload_file(file: UploadFile = File(...)):
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="localhost", port=8000, workers=4)
+    uvicorn.run(app, host="localhost", port=8000)

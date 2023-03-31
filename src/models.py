@@ -1,5 +1,7 @@
-from pydantic import BaseModel
 from typing import List
+
+from pydantic import BaseModel
+
 
 # Define response model
 class Transcription(BaseModel):
@@ -12,20 +14,21 @@ class Transcription(BaseModel):
 class TranscriptionList(BaseModel):
     transcriptions: List[Transcription]
 
+
 class Segments(BaseModel):
-    id : int
-    seek : int
-    start : float
-    end : float
-    text : str
-    tokens : List[int]
-    temperature : float
-    avg_logprob : float
-    compression_ratio : float
-    no_speech_prob : float
+    id: int
+    seek: int
+    start: float
+    end: float
+    text: str
+    tokens: List[int]
+    temperature: float
+    avg_logprob: float
+    compression_ratio: float
+    no_speech_prob: float
 
 
 class WhisperTranscription(BaseModel):
     text: str
-    segments : List[Segments]
+    segments: List[Segments]
     language: str

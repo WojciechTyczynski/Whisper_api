@@ -1,13 +1,14 @@
+import os
+import re
+
+import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import uvicorn
-import re
-import os
-from models import *
-
+from utils import download_youtube_audio
 from WhisperApiHandler import WhisperApiHandler
 
-from utils import download_youtube_audio
+from models import *
+
 app = FastAPI()
 
 whisper_api = WhisperApiHandler("http://localhost:8000")
@@ -18,7 +19,7 @@ def health():
     return {"status": "ok"}
 
 
-@app.post('/api/Video/transcribe')
+@app.post("/api/Video/transcribe")
 def my_endpoint(Video_data: VideoInput):
     """
     Takes a link to a video from the user and returns a transcript of the video.
@@ -34,7 +35,7 @@ def my_endpoint(Video_data: VideoInput):
     Returns
     -------
     str
-    
+
     """
     #  --- WE ONLY SUPPORT YOUTUBE VIDEOS FOR NOW ---
     # check if the url is a youtube video
@@ -47,18 +48,16 @@ def my_endpoint(Video_data: VideoInput):
     except:
         raise HTTPException(status_code=400, detail="Could not download the video")
 
-
     path = path.split(".")[0] + ".wav"
     filename = os.path.basename(path)
     # get the transcription
     response = whisper_api.get_transcription(filename)
     if response.status_code != 200:
         raise HTTPException(status_code=400, detail="Could not transcribe the video")
-    
+
     # remove the file from the shared folder
     os.remove(filename)
 
-    
     trans = response.json()
 
     return trans

@@ -1,12 +1,13 @@
+import os
 from typing import BinaryIO, List
+
 import ffmpeg
 import numpy as np
 import uvicorn
-from fastapi import FastAPI, File, UploadFile, HTTPException
+import whisper
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
 from loguru import logger
-import os
-import whisper
 
 from models import *
 
@@ -94,7 +95,7 @@ async def transcribe_file(audio_files: List[UploadFile] = File(...)):
     responses = []
     for audio_file in audio_files:
         logger.info(f'{"File loaded: "}{audio_file.filename}')
-        logger.info('Converting audio file...')
+        logger.info("Converting audio file...")
         audio = _load_audio_file(audio_file.file)
         logger.info("Audio file converted")
         logger.info("Transcribing audio file...")
@@ -109,6 +110,7 @@ async def transcribe_file(audio_files: List[UploadFile] = File(...)):
         )
     return TranscriptionList(transcriptions=responses)
 
+
 # gets path to lokale file and returns transcription
 @app.post("/transcribe/localfile/")
 async def transcribe_local_file(localfile: str) -> WhisperTranscription:
@@ -121,16 +123,15 @@ async def transcribe_local_file(localfile: str) -> WhisperTranscription:
     Returns
     -------
     A whisper transcription object
-    """    
+    """
     path = os.path.join(SHARED_FOLDER, localfile)
 
     # check if file exists
     if not os.path.isfile(path):
         raise HTTPException(status_code=404, detail="File not found")
 
-    transcribtion =  model.transcribe(path)
+    transcribtion = model.transcribe(path)
     return transcribtion
-
 
 
 @app.post("/uploadfile/")

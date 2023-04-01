@@ -15,7 +15,7 @@ class TranscriptionList(BaseModel):
     transcriptions: List[Transcription]
 
 
-class Segments(BaseModel):
+class WhisperSegments(BaseModel):
     id: int
     seek: int
     start: float
@@ -30,5 +30,5 @@ class Segments(BaseModel):
 
 class WhisperTranscription(BaseModel):
     text: str
-    segments: List[Segments]
+    segments: List[WhisperSegments]
     language: str

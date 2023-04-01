@@ -8,7 +8,7 @@ class VideoInput(BaseModel):
     seconds: int = 60
 
 
-class Segments(BaseModel):
+class Segment(BaseModel):
     start: int
     end: int
     text: str
@@ -16,6 +16,26 @@ class Segments(BaseModel):
 
 
 class Transcription(BaseModel):
-    file: str
     url: str
-    segments: List[Segments]
+    segments: List[Segment]
+    text: str
+    language: str
+
+
+class WhisperSegments(BaseModel):
+    id: int
+    seek: int
+    start: float
+    end: float
+    text: str
+    tokens: List[int]
+    temperature: float
+    avg_logprob: float
+    compression_ratio: float
+    no_speech_prob: float
+
+
+class WhisperTranscription(BaseModel):
+    text: str
+    segments: List[WhisperSegments]
+    language: str

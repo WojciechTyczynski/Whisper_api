@@ -3,7 +3,7 @@ import re
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from utils import download_youtube_audio
+from utils import download_youtube_audio, concat_sections_into_chunks
 from WhisperApiHandler import WhisperApiHandler
 
 from models import *
@@ -19,7 +19,7 @@ def health():
 
 
 @app.post("/api/Video/transcribe")
-def my_endpoint(Video_data: VideoInput):
+def my_endpoint(Video_data: VideoInput) -> Transcription:
     """
     Takes a link to a video from the user and returns a transcript of the video.
     Transcripts are concatenated into chunks of maximum Seconds seconds.
@@ -65,40 +65,7 @@ def my_endpoint(Video_data: VideoInput):
     return trans
 
 
-def concat_sections_into_chunks(whisper_transcript: WhisperTranscription, Video_data: VideoInput) -> Transcription:
-    """
-    Concatenate the transcript sections into chunks of maximum Seconds seconds
 
-    Parameters
-    ----------
-    whisper_transcript: WhisperTranscription
-        The transcript sections
-    Video_data: VideoInput
-        The maximum length of each transcript chunk and the video url
-    Returns
-    -------
-    Transcription
-        The concatenated transcript
-    """
-
-    
-    
-    final_transcript = Transcription(url=Video_data.video_url, segments=[], text=whisper_transcript.text, language=whisper_transcript.language) 
-
-    temp_segment = whisper_transcript.segments[0].copy()
-
-    for segment in whisper_transcript.segments[1:]:
-        if segment.end - temp_segment.start < Video_data.seconds:
-            temp_segment.end = segment.end
-            temp_segment.text += segment.text
-            temp_segment.tokens += segment.tokens
-        else:
-            final_transcript.segments.append(temp_segment)
-            temp_segment = segment.copy()
-
-    final_transcript.segments.append(temp_segment)
-
-    return final_transcript
 
 
 

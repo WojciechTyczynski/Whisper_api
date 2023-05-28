@@ -34,7 +34,6 @@ def my_endpoint(Video_data: VideoInput) -> Transcription:
     Returns
     -------
     str
-
     """
     #  --- WE ONLY SUPPORT YOUTUBE VIDEOS FOR NOW ---
     # check if the url is a youtube video

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -14,10 +14,12 @@ class Transcription(BaseModel):
 class TranscriptionList(BaseModel):
     transcriptions: List[Transcription]
 
+
 class WordTimestamp(BaseModel):
     word: str
     start: float
     end: float
+
 
 class WhisperSegments(BaseModel):
     id: int
@@ -26,7 +28,7 @@ class WhisperSegments(BaseModel):
     end: float
     text: str
     tokens: List[int]
-    words: List[WordTimestamp]
+    words: Optional[List[WordTimestamp]] = None
     temperature: float
     avg_logprob: float
     compression_ratio: float

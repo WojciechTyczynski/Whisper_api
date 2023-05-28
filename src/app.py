@@ -5,7 +5,7 @@ import ffmpeg
 import numpy as np
 import uvicorn
 import whisper
-from transformers import pipeline
+from transformers import pipeline, AutoProcessor
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
 from loguru import logger
@@ -18,9 +18,10 @@ SAMPLE_RATE = 16000
 SHARED_FOLDER = "E:\Whisper\Whisper_api\shared"
 
 # Load whisper model
-# model = whisper.load_model("tiny")
 pipe = pipeline("automatic-speech-recognition", model="openai/whisper-base")
-
+model = pipe.model
+tokenizer = pipe.tokenizer
+processor = AutoProcessor.from_pretrained("openai/whisper-base")
 
 def _load_audio_file(file: BinaryIO, sr: int = SAMPLE_RATE):
     """

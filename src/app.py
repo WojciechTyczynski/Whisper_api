@@ -5,6 +5,7 @@ import ffmpeg
 import numpy as np
 import uvicorn
 import whisper
+from transformers import pipeline
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
 from loguru import logger
@@ -17,7 +18,8 @@ SAMPLE_RATE = 16000
 SHARED_FOLDER = "E:\Whisper\Whisper_api\shared"
 
 # Load whisper model
-model = whisper.load_model("tiny")
+# model = whisper.load_model("tiny")
+pipe = pipeline("automatic-speech-recognition", model="openai/whisper-base")
 
 
 def _load_audio_file(file: BinaryIO, sr: int = SAMPLE_RATE):
@@ -99,19 +101,20 @@ async def transcribe_file(audio_files: List[UploadFile] = File(...)):
         audio = _load_audio_file(audio_file.file)
         logger.info("Audio file converted")
         logger.info("Transcribing audio file...")
-        transcribtion = model.transcribe(audio)
+        # transcribtion = model.transcribe(audio)
+        output_pipeline = pipe(audio, return_timestamps=True, chunk_length_s=30, batch_size=16)
         responses.append(
             Transcription(
                 file=audio_file.filename,
-                segments=transcribtion["segments"],
-                text=transcribtion["text"],
-                language=transcribtion["language"],
+                segments=output_pipeline["chunks"],
+                text=output_pipeline["text"],
+                language='en',
             )
         )
     return TranscriptionList(transcriptions=responses)
 
 
-# gets path to lokale file and returns transcription
+# gets path to local file and returns transcription
 @app.post("/transcribe/localfile/")
 async def transcribe_local_file(localfile: str) -> WhisperTranscription:
     """
@@ -130,8 +133,14 @@ async def transcribe_local_file(localfile: str) -> WhisperTranscription:
     if not os.path.isfile(path):
         raise HTTPException(status_code=404, detail="File not found")
 
-    transcribtion = model.transcribe(path)
-    return transcribtion
+    output_pipeline = pipe(path, return_timestamps=True, chunk_length_s=30, batch_size=16)
+    response = Transcription(
+        file=localfile,
+        segments=output_pipeline["chunks"],
+        text=output_pipeline["text"],
+        language='en',
+    )
+    return response
 
 
 @app.post("/uploadfile/")

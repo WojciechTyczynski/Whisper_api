@@ -13,7 +13,7 @@ class Segment(BaseModel):
     end: int
     text: str
     tokens: list
-
+    
 
 class Transcription(BaseModel):
     url: str
@@ -23,6 +23,7 @@ class Transcription(BaseModel):
 
 class WordTimestamp(BaseModel):
     word: str
+    tokens: List[int]
     start: float
     end: float
 

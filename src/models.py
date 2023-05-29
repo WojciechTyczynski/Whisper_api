@@ -4,21 +4,28 @@ from pydantic import BaseModel
 
 
 # Define response model
+class WordTimestamp(BaseModel):
+    word: str
+    tokens: List[int]
+    start: float
+    end: float
+
+
+class Segment(BaseModel):
+    start: float
+    end: float
+    text: str
+    words: Optional[List[WordTimestamp]] = None
+
 class Transcription(BaseModel):
     file: str
-    segments: list
+    segments: List[Segment]
     text: str
     language: str
 
 
 class TranscriptionList(BaseModel):
     transcriptions: List[Transcription]
-
-
-class WordTimestamp(BaseModel):
-    word: str
-    start: float
-    end: float
 
 
 class WhisperSegments(BaseModel):

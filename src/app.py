@@ -20,6 +20,7 @@ SHARED_FOLDER = "E:\Whisper\Whisper_api\shared"
 sot_sequence = (50258, 50259, 50359) # <|startoftranscript|><|en|><|transcribe|>
 prepend_punctuations = "\"'“¿([{-"
 append_punctuations = "\"'.。,，!！?？:：”)]}、"
+model_prefix = "base"
 
 # Load whisper model
 pipe = pipeline("automatic-speech-recognition", model="openai/whisper-base")
@@ -130,26 +131,8 @@ async def transcribe_file(audio_files: List[UploadFile] = File(...), word_timest
                         output_attentions=True,
                     )
                 cross_attentions = outputs.cross_attentions
-                alignment_heads = get_alignment_heads('base', model)
-                text_tokens = tokenizer.encode(segments[key]['text'] , add_special_tokens=False)
-                input_audio = processor(segments[key]['audio'], sampling_rate=16000, return_tensors="pt")
-                input_features = input_audio.input_features  
-                tokens = torch.tensor(
-                [
-                    *sot_sequence,
-                    tokenizer.all_special_ids[-1],  # <|notimestamps|>
-                    *text_tokens,
-                    tokenizer.eos_token_id,
-                ]
-                ).unsqueeze(0)
-                with torch.no_grad():
-                    outputs = model(
-                        input_features, 
-                        decoder_input_ids=tokens,
-                        output_attentions=True,
-                    )
-                cross_attentions = outputs.cross_attentions
-                word_timestamps = find_alignment(cross_attentions, text_tokens, alignment_heads, tokenizer=tokenizer)
+                alignment_heads = get_alignment_heads(model_prefix, model)
+                word_timestamps = find_alignment(cross_attentions, text_tokens, alignment_heads, tokenizer=tokenizer, segments_starts=[segments[key]['start']])
                 merge_punctuations(word_timestamps, prepend_punctuations,  append_punctuations)
                 segments_output.append(
                     Segment(

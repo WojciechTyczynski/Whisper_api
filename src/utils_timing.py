@@ -173,6 +173,7 @@ def find_alignment(
         alignment_heads, 
         tokenizer,
         batch_size: int=1,
+        segments_starts: List[int]=None,
         time_precision: float=0.2,
         tokens_per_second: int=50,
         num_frames: int=3000):
@@ -197,7 +198,7 @@ def find_alignment(
         start_times = jump_times[word_boundaries[:-1]]
         end_times = jump_times[word_boundaries[1:]]
         timing = [
-            WordTimestamp(word=word, tokens=tokens, start=start, end=end)
+            WordTimestamp(word=word, tokens=tokens, start=start+segments_starts[i], end=end+segments_starts[i])
             for word, tokens, start, end in zip(
                 words, word_tokens, start_times, end_times
             )

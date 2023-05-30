@@ -55,32 +55,29 @@ from typing import List
 
 
 def split_tokens_on_unicode(tokens: List[int], tokenizer):
-    decoded_full = tokenizer.decode(tokens, decode_with_timestamps=True)
-    replacement_char = "\ufffd"
+        decoded_full = tokenizer.decode(tokens, decode_with_timestamps=True)
+        replacement_char = "\ufffd"
 
-    words = []
-    word_tokens = []
-    current_tokens = []
-    unicode_offset = 0
+        words = []
+        word_tokens = []
+        current_tokens = []
+        unicode_offset = 0
 
-    for token in tokens:
-        current_tokens.append(token)
-        # TODO: why decode_with_timestamps here? since we stripped those out
-        # of the sequence already
-        decoded = tokenizer.decode(current_tokens, decode_with_timestamps=True)
+        for token in tokens:
+            current_tokens.append(token)
+            decoded = tokenizer.decode(current_tokens, decode_with_timestamps=True)
 
-        if (
-            replacement_char not in decoded
-            or decoded_full[unicode_offset + decoded.index(replacement_char)]
-            == replacement_char
-        ):
-            words.append(decoded)
-            word_tokens.append(current_tokens)
-            current_tokens = []
-            unicode_offset += len(decoded)
+            if (
+                replacement_char not in decoded
+                or decoded_full[unicode_offset + decoded.index(replacement_char)]
+                == replacement_char
+            ):
+                words.append(decoded)
+                word_tokens.append(current_tokens)
+                current_tokens = []
+                unicode_offset += len(decoded)
 
-    return words, word_tokens
-
+        return words, word_tokens
 
 def split_tokens_on_spaces(tokens: List[int], tokenizer):
     subwords, subword_tokens_list = split_tokens_on_unicode(tokens, tokenizer)
@@ -195,8 +192,9 @@ def find_alignment(
         word_boundaries = np.pad(np.cumsum([len(t) for t in word_tokens[:-1]]), (1, 0))
         jumps = np.pad(np.diff(text_indices), (1, 0), constant_values=1).astype(bool)
         jump_times = time_indices[jumps] / tokens_per_second
-        start_times = jump_times[word_boundaries[:-1]]
-        end_times = jump_times[word_boundaries[1:]]
+        start_times = list(jump_times[word_boundaries[:-1]])
+        end_times = list(jump_times[word_boundaries[1:]])
+        merge_punctuations(words, word_tokens, start_times, end_times)
         timing = [
             WordTimestamp(word=word, tokens=tokens, start=start+segments_starts[i], end=end+segments_starts[i])
             for word, tokens, start, end in zip(
@@ -207,19 +205,28 @@ def find_alignment(
     return timings
 
 
-def merge_punctuations(alignment: List[WordTimestamp], prepended: str, appended: str):
+def merge_punctuations(
+        words: List[str],
+        tokens: List[List[int]],
+        start_times: List[float],
+        end_times: List[float],
+        prepended: str="\"'“¿([{-",
+        appended: str="\"'.。,，!！?？:：”)]}、"):
     # merge prepended punctuations
-    i = len(alignment) - 2
-    j = len(alignment) - 1
+    i = len(words) - 2
+    j = len(words) - 1
     while i >= 0:
-        previous = alignment[i]
-        following = alignment[j]
-        if previous.word.startswith(" ") and previous.word.strip() in prepended:
+        previous = words[i]
+        following = words[j]
+        if previous.startswith(" ") and previous.strip() in prepended:
             # prepend it to the following word
-            following.word = previous.word + following.word
-            following.tokens = previous.tokens + following.tokens
-            previous.word = ""
-            previous.tokens = []
+            words[j] = words[i] + words[j]
+            tokens[j] = tokens[i] + tokens[j]
+            start_times[j] = start_times[i]
+            words[i] = ""
+            tokens[i] = []
+            start_times[i] = -1
+            end_times[i] = -1
         else:
             j = i
         i -= 1
@@ -227,16 +234,25 @@ def merge_punctuations(alignment: List[WordTimestamp], prepended: str, appended:
     # merge appended punctuations
     i = 0
     j = 1
-    while j < len(alignment):
-        previous = alignment[i]
-        following = alignment[j]
-        if not previous.word.endswith(" ") and following.word in appended:
+    while j < len(words):
+        previous = words[i]
+        following = words[j]
+        if not previous.endswith(" ") and following in appended:
             # append it to the previous word
-            previous.word = previous.word + following.word
-            previous.tokens = previous.tokens + following.tokens
-            following.word = ""
-            following.tokens = []
+            words[i] = words[i] + words[j]
+            tokens[i] = tokens[i] + tokens[j]
+            end_times[i] = end_times[j]
+            words[j] = ""
+            tokens[j] = []
+            start_times[j] = -1
+            end_times[j] = -1
         else:
             i = j
         j += 1
+
+    # remove elements that are now empty
+    words[:] = [word for word in words if word]
+    tokens[:] = [token for token in tokens if token]
+    start_times[:] = [idx for idx in start_times if idx != -1]
+    end_times[:] = [idx for idx in end_times if idx != -1]
 

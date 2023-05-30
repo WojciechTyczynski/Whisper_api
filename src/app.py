@@ -5,7 +5,7 @@ import ffmpeg
 import numpy as np
 import uvicorn
 import whisper
-from transformers import pipeline, AutoProcessor
+from transformers import pipeline, AutoProcessor, WhisperTokenizer
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
 from loguru import logger
@@ -23,9 +23,10 @@ append_punctuations = "\"'.。,，!！?？:：”)]}、"
 model_prefix = "base"
 
 # Load whisper model
-pipe = pipeline("automatic-speech-recognition", model="openai/whisper-base")
+tokenizer = WhisperTokenizer.from_pretrained("openai/whisper-base", language="english", predict_timestamps=True, add_prefix_space=False)
+pipe = pipeline("automatic-speech-recognition", model="openai/whisper-base", tokenizer=tokenizer)
 model = pipe.model
-tokenizer = pipe.tokenizer
+# tokenizer = pipe.tokenizer
 processor = AutoProcessor.from_pretrained("openai/whisper-base")
 
 def _load_audio_file(file: BinaryIO, sr: int = SAMPLE_RATE):
@@ -133,7 +134,6 @@ async def transcribe_file(audio_files: List[UploadFile] = File(...), word_timest
                 cross_attentions = outputs.cross_attentions
                 alignment_heads = get_alignment_heads(model_prefix, model)
                 word_timestamps = find_alignment(cross_attentions, text_tokens, alignment_heads, tokenizer=tokenizer, segments_starts=[segments[key]['start']])
-                merge_punctuations(word_timestamps, prepend_punctuations,  append_punctuations)
                 segments_output.append(
                     Segment(
                         start=segments[key]['start'],
@@ -182,8 +182,6 @@ async def transcribe_local_file(localfile: str) -> WhisperTranscription:
     if not os.path.isfile(path):
         raise HTTPException(status_code=404, detail="File not found")
     
-
-
     output_pipeline = pipe(path, return_timestamps=True, chunk_length_s=30, batch_size=16)
     response = Transcription(
         file=localfile,

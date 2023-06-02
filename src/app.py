@@ -109,9 +109,15 @@ async def transcribe_file(audio_files: List[UploadFile] = File(...), word_timest
         logger.info("Audio file converted")
         logger.info("Transcribing audio file...")
         # transcribtion = model.transcribe(audio)
-        output_pipeline = pipe(audio, return_timestamps=True, chunk_length_s=30, batch_size=16)
+        try:
+            output_pipeline = pipe(audio, return_timestamps=True, chunk_length_s=30, batch_size=16)
+        except Exception as e:
+            logger.error(e)
+            raise HTTPException(status_code=500, detail="Transcription failed")
         segments_output = []
         if word_timestamps:
+            if len(output_pipeline['chunks']) < 1 or output_pipeline['chunks'] is None:
+                raise HTTPException(status_code=500, detail="Segmentation failed")
             segments = get_segments(output_pipeline, audio)
             for key in segments.keys():
                 text_tokens = tokenizer.encode(segments[key]['text'] , add_special_tokens=False)

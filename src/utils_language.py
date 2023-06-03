@@ -106,6 +106,9 @@ LANGUAGES = {
     "su": "sundanese",
 }
 
+LANGUAGES_CODES = {v: k for k, v in LANGUAGES.items()}
+
+
 def _convert_code_to_language(code):
     """
     Convert language code to language name
@@ -121,6 +124,22 @@ def _convert_code_to_language(code):
         return LANGUAGES[code]
     except KeyError:
         raise HTTPException(status_code=400, detail="Invalid language code")
+    
+def _convert_language_to_code(language):
+    """
+    Convert language name to language code
+    Parameters
+    ----------
+    language: str
+        The language name
+    Returns
+    -------
+    The language code
+    """
+    try:
+        return LANGUAGES_CODES[language]
+    except KeyError:
+        raise HTTPException(status_code=400, detail="Invalid language name")
     
 
 def _detect_language(model: WhisperForConditionalGeneration, tokenizer: WhisperTokenizer, input_features,

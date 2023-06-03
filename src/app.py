@@ -9,14 +9,14 @@ from transformers import pipeline, AutoProcessor, WhisperTokenizer
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
 from loguru import logger
-
+from whisper.audio import load_audio
 from models import *
 from utils_timing import *
 
 app = FastAPI()
 
 SAMPLE_RATE = 16000
-SHARED_FOLDER = "E:\Whisper\Whisper_api\shared"
+SHARED_FOLDER = "/home/mb/Whisper_api/shared"
 sot_sequence = (50258, 50259, 50359) # <|startoftranscript|><|en|><|transcribe|>
 prepend_punctuations = "\"'“¿([{-"
 append_punctuations = "\"'.。,，!！?？:：”)]}、"
@@ -107,17 +107,21 @@ async def transcribe_file(audio_files: List[UploadFile] = File(...), word_timest
         logger.info("Converting audio file...")
         audio = _load_audio_file(audio_file.file)
         logger.info("Audio file converted")
-        logger.info("Transcribing audio file...")
-        # transcribtion = model.transcribe(audio)
-        output_pipeline = pipe(audio, return_timestamps=True, chunk_length_s=30, batch_size=16)
-        segments_output = []
-        if word_timestamps:
-            segments = get_segments(output_pipeline, audio)
-            for key in segments.keys():
-                text_tokens = tokenizer.encode(segments[key]['text'] , add_special_tokens=False)
-                input_audio = processor(segments[key]['audio'], sampling_rate=16000, return_tensors="pt")
-                input_features = input_audio.input_features  
-                tokens = torch.tensor(
+        trans = get_transcription(word_timestamps, audio=audio, file_name=audio_file.filename)
+        responses.append(trans)
+    return TranscriptionList(transcriptions=responses)
+
+def get_transcription(word_timestamps, audio, file_name=""):
+    logger.info("Transcribing audio file...")
+    output_pipeline = pipe(audio, return_timestamps=True, chunk_length_s=30, batch_size=16)
+    segments_output = []
+    if word_timestamps:
+        segments = get_segments(output_pipeline, audio)
+        for key in segments.keys():
+            text_tokens = tokenizer.encode(segments[key]['text'] , add_special_tokens=False)
+            input_audio = processor(segments[key]['audio'], sampling_rate=16000, return_tensors="pt")
+            input_features = input_audio.input_features  
+            tokens = torch.tensor(
                 [
                     *sot_sequence,
                     tokenizer.all_special_ids[-1],  # <|notimestamps|>
@@ -125,16 +129,16 @@ async def transcribe_file(audio_files: List[UploadFile] = File(...), word_timest
                     tokenizer.eos_token_id,
                 ]
                 ).unsqueeze(0)
-                with torch.no_grad():
-                    outputs = model(
+            with torch.no_grad():
+                outputs = model(
                         input_features, 
                         decoder_input_ids=tokens,
                         output_attentions=True,
                     )
-                cross_attentions = outputs.cross_attentions
-                alignment_heads = get_alignment_heads(model_prefix, model)
-                word_timestamps = find_alignment(cross_attentions, text_tokens, alignment_heads, tokenizer=tokenizer, segments_starts=[segments[key]['start']])
-                segments_output.append(
+            cross_attentions = outputs.cross_attentions
+            alignment_heads = get_alignment_heads(model_prefix, model)
+            word_timestamps = find_alignment(cross_attentions, text_tokens, alignment_heads, tokenizer=tokenizer, segments_starts=[segments[key]['start']])
+            segments_output.append(
                     Segment(
                         start=segments[key]['start'],
                         end=segments[key]['end'],
@@ -142,9 +146,9 @@ async def transcribe_file(audio_files: List[UploadFile] = File(...), word_timest
                         words=word_timestamps[0],
                     )
                 )
-        else:
-            for chunk in output_pipeline["chunks"]:
-                segments_output.append(
+    else:
+        for chunk in output_pipeline["chunks"]:
+            segments_output.append(
                     Segment(
                         start=chunk['timestamp'][0],
                         end=chunk['timestamp'][1],
@@ -152,20 +156,18 @@ async def transcribe_file(audio_files: List[UploadFile] = File(...), word_timest
                     )
                 )
 
-        responses.append(
-            Transcription(
-                file=audio_file.filename,
+    trans = Transcription(
+                file=file_name,
                 segments=segments_output,
                 text=output_pipeline["text"],
                 language='en',
-            )
-        )
-    return TranscriptionList(transcriptions=responses)
+            )        
+    return trans
 
 
 # gets path to local file and returns transcription
 @app.post("/transcribe/localfile/")
-async def transcribe_local_file(localfile: str) -> WhisperTranscription:
+async def transcribe_local_file(localfile: str, word_timestamps: bool = True) -> Transcription:
     """
     Transcribe an audio file saved on shared drive
     Parameters
@@ -181,15 +183,12 @@ async def transcribe_local_file(localfile: str) -> WhisperTranscription:
     # check if file exists
     if not os.path.isfile(path):
         raise HTTPException(status_code=404, detail="File not found")
-    
-    output_pipeline = pipe(path, return_timestamps=True, chunk_length_s=30, batch_size=16)
-    response = Transcription(
-        file=localfile,
-        segments=output_pipeline["chunks"],
-        text=output_pipeline["text"],
-        language='en',
-    )
-    return response
+
+    print(f"File loaded: {path}")    
+    # load audio file
+    audio = load_audio(path)
+    trans = get_transcription(word_timestamps, audio=audio, file_name=localfile)
+    return trans
 
 
 @app.post("/uploadfile/")

@@ -5,21 +5,9 @@ from pydantic import BaseModel
 
 class VideoInput(BaseModel):
     video_url: str
-    seconds: int = 60
-
-
-class Segment(BaseModel):
-    start: int
-    end: int
-    text: str
-    tokens: list
+    chunk_seconds: int = 60
+    max_words_per_chunk: int = 120
     
-
-class Transcription(BaseModel):
-    url: str
-    segments: List[Segment]
-    text: str
-    language: str
 
 class WordTimestamp(BaseModel):
     word: str
@@ -28,21 +16,15 @@ class WordTimestamp(BaseModel):
     end: float
 
 
-class WhisperSegments(BaseModel):
-    id: int
-    seek: int
+class Segment(BaseModel):
     start: float
     end: float
     text: str
-    tokens: List[int]
     words: Optional[List[WordTimestamp]] = None
-    temperature: float
-    avg_logprob: float
-    compression_ratio: float
-    no_speech_prob: float
 
-
-class WhisperTranscription(BaseModel):
+class Transcription(BaseModel):
+    file: str
+    segments: List[Segment]
     text: str
-    segments: List[WhisperSegments]
     language: str
+

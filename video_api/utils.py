@@ -1,10 +1,10 @@
 import yt_dlp as youtube_dl
 
 from models import *
-SHARED_FOLDER = "E:\Whisper\Whisper_api\shared"
+SHARED_FOLDER = "/home/mb/Whisper_api/shared"
 
 
-def download_youtube_audio(url):
+def download_youtube_audio(url : str):
     """
     Downloads the audio from a youtube video and saves it as a .wav file
 
@@ -37,7 +37,7 @@ def download_youtube_audio(url):
     return filename
 
 
-def concat_sections_into_chunks(whisper_transcript: WhisperTranscription, Video_data: VideoInput) -> Transcription:
+def concat_sections_into_chunks(whisper_transcript: Transcription, Video_data: VideoInput) -> Transcription:
     """
     Concatenate the transcript sections into chunks of maximum Seconds seconds
 

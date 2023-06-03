@@ -49,19 +49,20 @@ def my_endpoint(Video_data: VideoInput) -> Transcription:
     path = path.split(".")[0] + ".wav"
     filename = os.path.basename(path)
     # get the transcription
-    response = whisper_api.get_transcription(filename)
+    response = whisper_api.get_transcription(filename, True)
     if response.status_code != 200:
+        os.remove(path)
         raise HTTPException(status_code=400, detail="Could not transcribe the video")
 
     # remove the file from the shared folder
     os.remove(path)
 
-    whisper_transcript = WhisperTranscription(**response.json())
+    whisper_transcript = Transcription(**response.json())
 
     # concatenate the transcript into chunks of maximum Seconds seconds
-    trans = concat_sections_into_chunks(whisper_transcript, Video_data)
+    #trans = concat_sections_into_chunks(whisper_transcript, Video_data)
 
-    return trans
+    return whisper_transcript
 
 
 

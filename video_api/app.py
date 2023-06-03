@@ -1,9 +1,10 @@
 import os
 import re
+
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from utils import download_youtube_audio, concat_words_into_segments
+from utils import concat_words_into_segments, download_youtube_audio
 from WhisperApiHandler import WhisperApiHandler
 
 from models import *
@@ -56,19 +57,13 @@ def my_endpoint(Video_data: VideoInput) -> Transcription:
 
     # remove the file from the shared folder
     os.remove(path)
-    
+
     whisper_transcript = Transcription(**response.json())
-
-
 
     # concatenate the word level timestamps into chunks of maximum Seconds or maximum words
     segmented = concat_words_into_segments(whisper_transcript, Video_data)
 
     return segmented
-
-
-
-
 
 
 if __name__ == "__main__":

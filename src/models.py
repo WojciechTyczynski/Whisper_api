@@ -17,6 +17,7 @@ class Segment(BaseModel):
     text: str
     words: Optional[List[WordTimestamp]] = None
 
+
 class Transcription(BaseModel):
     file: str
     segments: List[Segment]

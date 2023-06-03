@@ -1,12 +1,14 @@
-import numpy as np
-import torch
-from torch import nn
 import base64
 import gzip
 
+import numpy as np
+import torch
+from torch import nn
+
 from models import *
 
-def get_segments(transcription, audio, tokenizer, sample_rate: int=16000 ):
+
+def get_segments(transcription, audio, tokenizer, sample_rate: int = 16000):
     """
     Function to merge the chunks of the transcription form Hugging Face WhisperPipeline into 
     <30s segments or <448 tokens. 
@@ -14,24 +16,42 @@ def get_segments(transcription, audio, tokenizer, sample_rate: int=16000 ):
     MAX_LEN_TOKENS = 448
     seek = 0
     current_seek = 0
-    segments = {0:{'start':0, 'end':0, 'text':'', 'tokens':[]}}
-    for i in range(len(transcription['chunks'])):
-        seek_index = int(seek*100)
-        start, end = transcription['chunks'][i]['timestamp']
-        temp_tokens = tokenizer.encode(transcription['chunks'][i]['text'], add_special_tokens=False)
-        concat_len = len(segments[seek_index]['tokens']) + len(temp_tokens)
+    segments = {0: {"start": 0, "end": 0, "text": "", "tokens": []}}
+    for i in range(len(transcription["chunks"])):
+        seek_index = int(seek * 100)
+        start, end = transcription["chunks"][i]["timestamp"]
+        temp_tokens = tokenizer.encode(
+            transcription["chunks"][i]["text"], add_special_tokens=False
+        )
+        concat_len = len(segments[seek_index]["tokens"]) + len(temp_tokens)
         if end - seek < 29 and concat_len < MAX_LEN_TOKENS:
-            segments[seek_index]['text'] = (segments[seek_index]['text'] + transcription['chunks'][i]['text'])
-            segments[seek_index]['tokens'] = segments[seek_index]['tokens'] + temp_tokens
+            segments[seek_index]["text"] = (
+                segments[seek_index]["text"] + transcription["chunks"][i]["text"]
+            )
+            segments[seek_index]["tokens"] = (
+                segments[seek_index]["tokens"] + temp_tokens
+            )
             current_seek = end
         else:
-            segments[seek_index]['end'] = current_seek
-            segments[seek_index]['audio'] = audio[int(segments[seek_index]['start']*sample_rate):int(segments[int(seek*100)]['end']*sample_rate)]
+            segments[seek_index]["end"] = current_seek
+            segments[seek_index]["audio"] = audio[
+                int(segments[seek_index]["start"] * sample_rate) : int(
+                    segments[int(seek * 100)]["end"] * sample_rate
+                )
+            ]
             seek = current_seek
-            segments[int(seek*100)] = {'start':start, 'text':transcription['chunks'][i]['text'], 'tokens':temp_tokens}
+            segments[int(seek * 100)] = {
+                "start": start,
+                "text": transcription["chunks"][i]["text"],
+                "tokens": temp_tokens,
+            }
             current_seek = end
-    segments[int(seek*100)]['end'] = current_seek
-    segments[int(seek*100)]['audio'] = audio[int(segments[int(seek*100)]['start']*sample_rate):int(segments[int(seek*100)]['end']*sample_rate)]
+    segments[int(seek * 100)]["end"] = current_seek
+    segments[int(seek * 100)]["audio"] = audio[
+        int(segments[int(seek * 100)]["start"] * sample_rate) : int(
+            segments[int(seek * 100)]["end"] * sample_rate
+        )
+    ]
     return segments
 
 
@@ -50,41 +70,43 @@ def get_alignment_heads(model_prefix, model):
         "large": b"ABzY8zd+h!0{>%R7=D0pU<_bnWW*tkYAhobTNnu$jnkEkXqp)j;w1Tzk)UH3X%SZd&fFZ2fC2yj",
     }
     array = np.frombuffer(
-            gzip.decompress(base64.b85decode(_ALIGNMENT_HEADS[model_prefix])), dtype=bool
-        ).copy()
+        gzip.decompress(base64.b85decode(_ALIGNMENT_HEADS[model_prefix])), dtype=bool
+    ).copy()
     mask = torch.from_numpy(array).reshape(
         model.config.decoder_layers, model.config.decoder_attention_heads
     )
     return mask.to_sparse().indices().T
+
 
 import string
 from typing import List
 
 
 def split_tokens_on_unicode(tokens: List[int], tokenizer):
-        decoded_full = tokenizer.decode(tokens, decode_with_timestamps=True)
-        replacement_char = "\ufffd"
+    decoded_full = tokenizer.decode(tokens, decode_with_timestamps=True)
+    replacement_char = "\ufffd"
 
-        words = []
-        word_tokens = []
-        current_tokens = []
-        unicode_offset = 0
+    words = []
+    word_tokens = []
+    current_tokens = []
+    unicode_offset = 0
 
-        for token in tokens:
-            current_tokens.append(token)
-            decoded = tokenizer.decode(current_tokens, decode_with_timestamps=True)
+    for token in tokens:
+        current_tokens.append(token)
+        decoded = tokenizer.decode(current_tokens, decode_with_timestamps=True)
 
-            if (
-                replacement_char not in decoded
-                or decoded_full[unicode_offset + decoded.index(replacement_char)]
-                == replacement_char
-            ):
-                words.append(decoded)
-                word_tokens.append(current_tokens)
-                current_tokens = []
-                unicode_offset += len(decoded)
+        if (
+            replacement_char not in decoded
+            or decoded_full[unicode_offset + decoded.index(replacement_char)]
+            == replacement_char
+        ):
+            words.append(decoded)
+            word_tokens.append(current_tokens)
+            current_tokens = []
+            unicode_offset += len(decoded)
 
-        return words, word_tokens
+    return words, word_tokens
+
 
 def split_tokens_on_spaces(tokens: List[int], tokenizer):
     subwords, subword_tokens_list = split_tokens_on_unicode(tokens, tokenizer)
@@ -171,17 +193,19 @@ def dtw(x: np.ndarray):
     time_indices = np.array(time_indices)[::-1]
     return text_indices, time_indices
 
+
 def find_alignment(
-        cross_attentions,
-        text_tokens, 
-        alignment_heads, 
-        tokenizer,
-        batch_size: int=1,
-        segments_starts: List[int]=None,
-        time_precision: float=0.2,
-        tokens_per_second: int=50,
-        num_frames: int=3000):
-    
+    cross_attentions,
+    text_tokens,
+    alignment_heads,
+    tokenizer,
+    batch_size: int = 1,
+    segments_starts: List[int] = None,
+    time_precision: float = 0.2,
+    tokens_per_second: int = 50,
+    num_frames: int = 3000,
+):
+
     weights = torch.stack([cross_attentions[l][:, h, :, :] for l, h in alignment_heads])
     weights = weights.permute([1, 0, 2, 3])
     weights = weights[:, :, : num_frames // 2]
@@ -191,11 +215,13 @@ def find_alignment(
 
     # Average the different cross-attention heads.
     matrix = weights.mean(dim=1)
-    matrix = matrix[:,3:-1,:] # Skip sot_sequence (50258, 50259, 50359)
+    matrix = matrix[:, 3:-1, :]  # Skip sot_sequence (50258, 50259, 50359)
     timings = []
     for i in range(batch_size):
         text_indices, time_indices = dtw(-matrix[i].double().cpu().numpy())
-        words, word_tokens = split_tokens_on_spaces(text_tokens[:-1] + [tokenizer.eos_token_id], tokenizer)
+        words, word_tokens = split_tokens_on_spaces(
+            text_tokens[:-1] + [tokenizer.eos_token_id], tokenizer
+        )
         word_boundaries = np.pad(np.cumsum([len(t) for t in word_tokens[:-1]]), (1, 0))
         jumps = np.pad(np.diff(text_indices), (1, 0), constant_values=1).astype(bool)
         jump_times = time_indices[jumps] / tokens_per_second
@@ -203,7 +229,12 @@ def find_alignment(
         end_times = list(jump_times[word_boundaries[1:]])
         merge_punctuations(words, word_tokens, start_times, end_times)
         timing = [
-            WordTimestamp(word=word, tokens=tokens, start=start+segments_starts[i], end=end+segments_starts[i])
+            WordTimestamp(
+                word=word,
+                tokens=tokens,
+                start=start + segments_starts[i],
+                end=end + segments_starts[i],
+            )
             for word, tokens, start, end in zip(
                 words, word_tokens, start_times, end_times
             )
@@ -213,12 +244,13 @@ def find_alignment(
 
 
 def merge_punctuations(
-        words: List[str],
-        tokens: List[List[int]],
-        start_times: List[float],
-        end_times: List[float],
-        prepended: str="\"'“¿([{-",
-        appended: str="\"'.。,，!！?？:：”)]}、"):
+    words: List[str],
+    tokens: List[List[int]],
+    start_times: List[float],
+    end_times: List[float],
+    prepended: str = "\"'“¿([{-",
+    appended: str = "\"'.。,，!！?？:：”)]}、",
+):
     # merge prepended punctuations
     i = len(words) - 2
     j = len(words) - 1
@@ -262,4 +294,3 @@ def merge_punctuations(
     tokens[:] = [token for token in tokens if token]
     start_times[:] = [idx for idx in start_times if idx != -1]
     end_times[:] = [idx for idx in end_times if idx != -1]
-

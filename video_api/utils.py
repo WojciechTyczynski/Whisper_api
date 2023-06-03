@@ -1,10 +1,13 @@
-import yt_dlp as youtube_dl
 import loguru
+import yt_dlp as youtube_dl
+
 from models import *
+
 SHARED_FOLDER = "/home/mb/Whisper_api/shared"
 logger = loguru.logger
 
-def download_youtube_audio(url : str):
+
+def download_youtube_audio(url: str):
     """
     Downloads the audio from a youtube video and saves it as a .wav file
 
@@ -37,7 +40,9 @@ def download_youtube_audio(url : str):
     return filename
 
 
-def concat_words_into_segments(whisper_transcript: Transcription, Video_data: VideoInput):
+def concat_words_into_segments(
+    whisper_transcript: Transcription, Video_data: VideoInput
+):
     """
     Concatenate the transcript sections into chunks of maximum Seconds seconds
 
@@ -52,28 +57,43 @@ def concat_words_into_segments(whisper_transcript: Transcription, Video_data: Vi
     Transcription
         The concatenated transcript
     """
-    logger.info("Concatenating the transcript sections into chunks of maximum {} seconds".format(Video_data.chunk_seconds))
+    logger.info(
+        "Concatenating the transcript sections into chunks of maximum {} seconds".format(
+            Video_data.chunk_seconds
+        )
+    )
     segments = []
     temp_segment = Segment(start=0, end=0, text="", words=[])
     index = 0
     # Create new segments of max video_data.chunk_seconds seconds and max video_data.max_words_per_chunk words
     for transcript_segment in whisper_transcript.segments:
-        if transcript_segment.end - index < Video_data.chunk_seconds \
-        and len(transcript_segment.words + transcript_segment.words) < Video_data.max_words_per_chunk:
+        if (
+            transcript_segment.end - index < Video_data.chunk_seconds
+            and len(transcript_segment.words + transcript_segment.words)
+            < Video_data.max_words_per_chunk
+        ):
             temp_segment.end = transcript_segment.end
             temp_segment.text += transcript_segment.text
             temp_segment.words += transcript_segment.words
         else:
             # go over all words
             for word in transcript_segment.words:
-                if word.end - index < Video_data.chunk_seconds \
-                and len(temp_segment.words + [word]) < Video_data.max_words_per_chunk:
+                if (
+                    word.end - index < Video_data.chunk_seconds
+                    and len(temp_segment.words + [word])
+                    < Video_data.max_words_per_chunk
+                ):
                     temp_segment.end = word.end
                     temp_segment.text += word.word + " "
                     temp_segment.words += [word]
                 else:
                     segments.append(temp_segment)
-                    temp_segment = Segment(start=word.start, end=word.end, text=word.word + " ", words=[word])
+                    temp_segment = Segment(
+                        start=word.start,
+                        end=word.end,
+                        text=word.word + " ",
+                        words=[word],
+                    )
                     index = word.end
     # add the last segment
     segments.append(temp_segment)

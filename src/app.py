@@ -21,11 +21,12 @@ sot_sequence = (50258, 50259, 50359) # <|startoftranscript|><|en|><|transcribe|>
 prepend_punctuations = "\"'“¿([{-"
 append_punctuations = "\"'.。,，!！?？:：”)]}、"
 model_prefix = "base"
+device = "cuda:0"
 
 # Load whisper model
 tokenizer = WhisperTokenizer.from_pretrained("openai/whisper-base", language="english", predict_timestamps=True, add_prefix_space=False)
-pipe = pipeline("automatic-speech-recognition", model="openai/whisper-base", tokenizer=tokenizer)
-model = pipe.model
+pipe = pipeline("automatic-speech-recognition", model="openai/whisper-base", tokenizer=tokenizer, device=device)
+model = pipe.model.to(device)
 # tokenizer = pipe.tokenizer
 processor = AutoProcessor.from_pretrained("openai/whisper-base")
 
@@ -89,7 +90,7 @@ async def main():
 
 # Define endpoint to transcribe a file
 @app.post("/transcribe/")
-async def transcribe_file(audio_files: List[UploadFile] = File(...), word_timestamps: bool = True):
+async def transcribe_file(audio_files: List[UploadFile] = File(...), word_timestamps: bool = True) -> TranscriptionList:
     """
     Transcribe a list of audio/video files
     Parameters
@@ -108,8 +109,10 @@ async def transcribe_file(audio_files: List[UploadFile] = File(...), word_timest
         try:
             audio = _load_audio_file(audio_file.file)
             logger.info("Audio file converted")
-            trans = get_transcription(word_timestamps, audio=audio, file_name=audio_file.filename)
+            trans = _get_transcription(word_timestamps, audio=audio, file_name=audio_file.filename)
+            logger.info("Audio file transcribed")
         except RuntimeError as e:
+            logger.error(f"Failed to transcribe audio file: {e}")
             responses.append(
                 Transcription(
                     file_name=audio_file.filename,
@@ -122,7 +125,7 @@ async def transcribe_file(audio_files: List[UploadFile] = File(...), word_timest
         responses.append(trans)
     return TranscriptionList(transcriptions=responses)
 
-def get_transcription(word_timestamps, audio, file_name=""):
+def _get_transcription(word_timestamps, audio, file_name=""):
     logger.info("Transcribing audio file...")
     output_pipeline = pipe(audio, return_timestamps=True, chunk_length_s=30, batch_size=16)
     segments_output = []
@@ -131,7 +134,7 @@ def get_transcription(word_timestamps, audio, file_name=""):
         for key in segments.keys():
             text_tokens = tokenizer.encode(segments[key]['text'] , add_special_tokens=False)
             input_audio = processor(segments[key]['audio'], sampling_rate=16000, return_tensors="pt")
-            input_features = input_audio.input_features  
+            input_features = input_audio.input_features.to(device)  
             tokens = torch.tensor(
                 [
                     *sot_sequence,
@@ -139,7 +142,7 @@ def get_transcription(word_timestamps, audio, file_name=""):
                     *text_tokens,
                     tokenizer.eos_token_id,
                 ]
-                ).unsqueeze(0)
+                ).unsqueeze(0).to(device)
             with torch.no_grad():
                 outputs = model(
                         input_features, 
@@ -199,7 +202,7 @@ async def transcribe_local_file(localfile: str, word_timestamps: bool = True) ->
     # load audio file
     audio = load_audio(path)
     try:
-        trans = get_transcription(word_timestamps, audio=audio, file_name=localfile)
+        trans = _get_transcription(word_timestamps, audio=audio, file_name=localfile)
     except Exception as e:
         raise HTTPException(status_code=400, detail="Failed to transcribe file")
     return trans

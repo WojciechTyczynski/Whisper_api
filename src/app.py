@@ -105,9 +105,20 @@ async def transcribe_file(audio_files: List[UploadFile] = File(...), word_timest
     for audio_file in audio_files:
         logger.info(f'{"File loaded: "}{audio_file.filename}')
         logger.info("Converting audio file...")
-        audio = _load_audio_file(audio_file.file)
-        logger.info("Audio file converted")
-        trans = get_transcription(word_timestamps, audio=audio, file_name=audio_file.filename)
+        try:
+            audio = _load_audio_file(audio_file.file)
+            logger.info("Audio file converted")
+            trans = get_transcription(word_timestamps, audio=audio, file_name=audio_file.filename)
+        except RuntimeError as e:
+            responses.append(
+                Transcription(
+                    file_name=audio_file.filename,
+                    text="",
+                    segments=[],
+                    language="",
+                )
+            )
+            continue
         responses.append(trans)
     return TranscriptionList(transcriptions=responses)
 
@@ -187,7 +198,10 @@ async def transcribe_local_file(localfile: str, word_timestamps: bool = True) ->
     print(f"File loaded: {path}")    
     # load audio file
     audio = load_audio(path)
-    trans = get_transcription(word_timestamps, audio=audio, file_name=localfile)
+    try:
+        trans = get_transcription(word_timestamps, audio=audio, file_name=localfile)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Failed to transcribe file")
     return trans
 
 

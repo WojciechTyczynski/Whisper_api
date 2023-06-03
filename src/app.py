@@ -13,6 +13,7 @@ from whisper.audio import load_audio
 
 from models import *
 from utils_timing import *
+from utils_language import _detect_language, _convert_code_to_language
 
 app = FastAPI()
 
@@ -22,23 +23,19 @@ sot_sequence = (50258, 50259, 50359)  # <|startoftranscript|><|en|><|transcribe|
 prepend_punctuations = "\"'“¿([{-"
 append_punctuations = "\"'.。,，!！?？:：”)]}、"
 model_prefix = "base"
-device = "cuda:0"
+if torch.cuda.is_available():
+    device = "cuda:0"
+else:
+    device = "cpu"
 
 # Load whisper model
-tokenizer = WhisperTokenizer.from_pretrained(
-    "openai/whisper-base",
-    language="english",
-    predict_timestamps=True,
-    add_prefix_space=False,
-)
 pipe = pipeline(
     "automatic-speech-recognition",
     model="openai/whisper-base",
-    tokenizer=tokenizer,
     device=device,
 )
 model = pipe.model.to(device)
-# tokenizer = pipe.tokenizer
+tokenizer = pipe.tokenizer
 processor = AutoProcessor.from_pretrained("openai/whisper-base")
 
 
@@ -103,7 +100,9 @@ async def main():
 # Define endpoint to transcribe a file
 @app.post("/transcribe/")
 async def transcribe_file(
-    audio_files: List[UploadFile] = File(...), word_timestamps: bool = True
+    audio_files: List[UploadFile] = File(...),
+    word_timestamps: bool = True,
+    language: Optional[str] = None,
 ) -> TranscriptionList:
     """
     Transcribe a list of audio/video files
@@ -123,8 +122,18 @@ async def transcribe_file(
         try:
             audio = _load_audio_file(audio_file.file)
             logger.info("Audio file converted")
+            if language is None:
+                input_features = processor(audio, sampling_rate=16000,
+                               return_tensors="pt").input_features.to(device)   
+                languages_prob = _detect_language(model, tokenizer, input_features)[0]
+                language_code = max(languages_prob, key=languages_prob.get)[2:-2]
+                audio_language = _convert_code_to_language(language_code)
+            else:
+                audio_language = language
+            logger.info(f'{"Language detected: "}{audio_language}')
+            tokenizer.set_prefix_tokens(language=audio_language)
             trans = _get_transcription(
-                word_timestamps, audio=audio, file_name=audio_file.filename
+                word_timestamps, audio=audio, file_name=audio_file.filename, language=audio_language
             )
             logger.info("Audio file transcribed")
         except RuntimeError as e:
@@ -139,7 +148,7 @@ async def transcribe_file(
     return TranscriptionList(transcriptions=responses)
 
 
-def _get_transcription(word_timestamps, audio, file_name=""):
+def _get_transcription(word_timestamps, audio, file_name="", language=None):
     logger.info("Transcribing audio file...")
     output_pipeline = pipe(
         audio, return_timestamps=True, chunk_length_s=30, batch_size=16
@@ -200,7 +209,7 @@ def _get_transcription(word_timestamps, audio, file_name=""):
         file=file_name,
         segments=segments_output,
         text=output_pipeline["text"],
-        language="en",
+        language=language,
     )
     return trans
 
@@ -208,7 +217,9 @@ def _get_transcription(word_timestamps, audio, file_name=""):
 # gets path to local file and returns transcription
 @app.post("/transcribe/localfile/")
 async def transcribe_local_file(
-    localfile: str, word_timestamps: bool = True
+    localfile: str,
+    word_timestamps: bool = True,
+    language: Optional[str] = None,
 ) -> Transcription:
     """
     Transcribe an audio file saved on shared drive
@@ -230,7 +241,17 @@ async def transcribe_local_file(
     # load audio file
     audio = load_audio(path)
     try:
-        trans = _get_transcription(word_timestamps, audio=audio, file_name=localfile)
+        if language is None:
+            input_features = processor(audio, sampling_rate=16000,
+                               return_tensors="pt").input_features.to(device)   
+            languages_prob = _detect_language(model, tokenizer, input_features)[0]
+            language_code = max(languages_prob[0], key=languages_prob[0].get)[2:-2]
+            audio_language = _convert_code_to_language(language_code)
+        else:
+            audio_language = language
+        tokenizer.set_prefix_tokens(language=audio_language)
+        trans = _get_transcription(word_timestamps, audio=audio, file_name=localfile, language=audio_language)
+        logger.info(f'{"Language detected: "}{audio_language}')
     except Exception as e:
         logger.error(f"Failed to transcribe audio file: {e}")
         raise HTTPException(status_code=400, detail="Failed to transcribe file")

@@ -204,6 +204,7 @@ async def transcribe_local_file(localfile: str, word_timestamps: bool = True) ->
     try:
         trans = _get_transcription(word_timestamps, audio=audio, file_name=localfile)
     except Exception as e:
+        logger.error(f"Failed to transcribe audio file: {e}")
         raise HTTPException(status_code=400, detail="Failed to transcribe file")
     return trans
 

@@ -64,7 +64,7 @@ def my_endpoint(Video_data: VideoInput) -> Transcription:
     # concatenate the word level timestamps into chunks of maximum Seconds or maximum words
     segmented = concat_words_into_segments(whisper_transcript, Video_data)
 
-    return whisper_transcript, segmented
+    return segmented
 
 
 

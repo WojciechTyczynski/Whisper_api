@@ -6,22 +6,29 @@ import gzip
 
 from models import *
 
-def get_segments(transcription, audio, sample_rate: int=16000):
+def get_segments(transcription, audio, tokenizer, sample_rate: int=16000 ):
     """
-    Function to merge the chunks of the transcription form Hugging Face WhisperPipeline into <30s segments and return the audio for each segment
+    Function to merge the chunks of the transcription form Hugging Face WhisperPipeline into 
+    <30s segments or <448 tokens. 
     """
+    MAX_LEN_TOKENS = 448
     seek = 0
-    segments = {0:{'start':0, 'end':0, 'text':''}}
+    current_seek = 0
+    segments = {0:{'start':0, 'end':0, 'text':'', 'tokens':[]}}
     for i in range(len(transcription['chunks'])):
+        seek_index = int(seek*100)
         start, end = transcription['chunks'][i]['timestamp']
-        if end - seek < 29:
-            segments[int(seek*100)]['text'] = (segments[int(seek*100)]['text'] + transcription['chunks'][i]['text'])
+        temp_tokens = tokenizer.encode(transcription['chunks'][i]['text'], add_special_tokens=False)
+        concat_len = len(segments[seek_index]['tokens']) + len(temp_tokens)
+        if end - seek < 29 and concat_len < MAX_LEN_TOKENS:
+            segments[seek_index]['text'] = (segments[seek_index]['text'] + transcription['chunks'][i]['text'])
+            segments[seek_index]['tokens'] = segments[seek_index]['tokens'] + temp_tokens
             current_seek = end
         else:
-            segments[int(seek*100)]['end'] = current_seek
-            segments[int(seek*100)]['audio'] = audio[int(segments[int(seek*100)]['start']*sample_rate):int(segments[int(seek*100)]['end']*sample_rate)]
+            segments[seek_index]['end'] = current_seek
+            segments[seek_index]['audio'] = audio[int(segments[seek_index]['start']*sample_rate):int(segments[int(seek*100)]['end']*sample_rate)]
             seek = current_seek
-            segments[int(seek*100)] = {'start':start, 'text':transcription['chunks'][i]['text']}
+            segments[int(seek*100)] = {'start':start, 'text':transcription['chunks'][i]['text'], 'tokens':temp_tokens}
             current_seek = end
     segments[int(seek*100)]['end'] = current_seek
     segments[int(seek*100)]['audio'] = audio[int(segments[int(seek*100)]['start']*sample_rate):int(segments[int(seek*100)]['end']*sample_rate)]

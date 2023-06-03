@@ -130,9 +130,9 @@ def _get_transcription(word_timestamps, audio, file_name=""):
     output_pipeline = pipe(audio, return_timestamps=True, chunk_length_s=30, batch_size=16)
     segments_output = []
     if word_timestamps:
-        segments = get_segments(output_pipeline, audio)
+        segments = get_segments(output_pipeline, audio, tokenizer)
         for key in segments.keys():
-            text_tokens = tokenizer.encode(segments[key]['text'] , add_special_tokens=False)
+            text_tokens = segments[key]['tokens']
             input_audio = processor(segments[key]['audio'], sampling_rate=16000, return_tensors="pt")
             input_features = input_audio.input_features.to(device)  
             tokens = torch.tensor(

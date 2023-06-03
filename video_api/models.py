@@ -28,3 +28,7 @@ class Transcription(BaseModel):
     text: str
     language: str
 
+class CustomSegment(BaseModel):
+    start: float
+    end: float
+    text: str

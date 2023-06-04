@@ -13,7 +13,7 @@ def get_substringofrepeatedchars(string):
     temp = string.split(" ")
     a = []
     for i in temp:
-        if i not in a:
+        if i not in a[:-10]:
             a.append(i)
     temp = " ".join(a)
     return temp

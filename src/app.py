@@ -126,7 +126,7 @@ async def transcribe_file(
             if language is None:
                 input_features = processor(audio, sampling_rate=16000,
                                return_tensors="pt").input_features.to(device)   
-                languages_prob = _detect_language(model, tokenizer, input_features)[0]
+                languages_prob = _detect_language(device, model, tokenizer, input_features)[0]
                 language_token = max(languages_prob, key=languages_prob.get)
                 audio_language = _convert_code_to_language(language_token[2:-2])
             else:
@@ -166,7 +166,6 @@ def _get_transcription(word_timestamps, audio, file_name="", language_token=None
             )
             input_features = input_audio.input_features.to(device)
             sot_sequence = (50258, SPECIAL_TOKENS[language_token], 50359)  # <|startoftranscript|><|language|><|transcribe|>
-            logger.info(f'{"Language token id: "}{SPECIAL_TOKENS[language_token]}')
             tokens = (
                 torch.tensor(
                     [
@@ -249,7 +248,7 @@ async def transcribe_local_file(
         if language is None:
             input_features = processor(audio, sampling_rate=16000,
                                return_tensors="pt").input_features.to(device)   
-            languages_prob = _detect_language(model, tokenizer, input_features)[0]
+            languages_prob = _detect_language(device, model, tokenizer, input_features)[0]
             language_token = max(languages_prob[0], key=languages_prob[0].get)
             audio_language = _convert_code_to_language(language_token[2:-2])
         else:

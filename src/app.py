@@ -154,7 +154,8 @@ async def transcribe_file(
 def _get_transcription(word_timestamps, audio, file_name="", language_token=None):
     logger.info("Transcribing audio file...")
     output_pipeline = pipe(
-        audio, return_timestamps=True, chunk_length_s=30, batch_size=16
+        audio, return_timestamps=True, chunk_length_s=30, stride_length_s=[6,0], batch_size=16,
+        generate_kwargs = {"task":"transcribe", "language":language_token}
     )
     segments_output = []
     if word_timestamps:

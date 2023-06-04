@@ -6,7 +6,17 @@ import torch
 from torch import nn
 
 from models import *
-
+def get_substringofrepeatedchars(string):
+    """
+    Function to get the substring of repeated characters in a string.
+    """
+    temp = string.split(" ")
+    a = []
+    for i in temp:
+        if i not in a[:-10]:
+            a.append(i)
+    temp = " ".join(a)
+    return temp
 
 def get_segments(transcription, audio, tokenizer, sample_rate: int = 16000):
     """
@@ -23,6 +33,15 @@ def get_segments(transcription, audio, tokenizer, sample_rate: int = 16000):
         temp_tokens = tokenizer.encode(
             transcription["chunks"][i]["text"], add_special_tokens=False
         )
+
+         # We see sometimes that the model do hallucinate and repeat the same sentence over and over
+        # We try to detect this by looking at the length of the tokens and if it is > 448 we try to
+        # get the substring of repeated characters in the sentence and encode it again.
+        if len(temp_tokens) > MAX_LEN_TOKENS:
+            transcription["chunks"][i]["text"] = get_substringofrepeatedchars(transcription["chunks"][i]["text"])
+            temp_tokens = tokenizer.encode(transcription["chunks"][i]["text"], add_special_tokens=False)
+
+
         concat_len = len(segments[seek_index]["tokens"]) + len(temp_tokens)
         if end - seek < 29 and concat_len < MAX_LEN_TOKENS:
             segments[seek_index]["text"] = (

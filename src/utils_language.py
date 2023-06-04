@@ -142,7 +142,7 @@ def _convert_language_to_code(language):
         raise HTTPException(status_code=400, detail="Invalid language name")
     
 
-def _detect_language(model: WhisperForConditionalGeneration, tokenizer: WhisperTokenizer, input_features,
+def _detect_language(device: str, model: WhisperForConditionalGeneration, tokenizer: WhisperTokenizer, input_features,
                     possible_languages: Optional[Collection[str]] = None) -> List[Dict[str, float]]:
     """
     Detect the language of each input
@@ -171,7 +171,7 @@ def _detect_language(model: WhisperForConditionalGeneration, tokenizer: WhisperT
 
     # 50258 is the token for transcribing
     logits = model(input_features,
-                   decoder_input_ids = torch.tensor([[50258] for _ in range(input_features.shape[0])])).logits
+                   decoder_input_ids = torch.tensor([[50258] for _ in range(input_features.shape[0])]).to(device)).logits
     mask = torch.ones(logits.shape[-1], dtype=torch.bool)
     mask[language_token_ids] = False
     logits[:, :, mask] = -float('inf')

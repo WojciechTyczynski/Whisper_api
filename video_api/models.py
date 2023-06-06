@@ -34,3 +34,9 @@ class CustomSegment(BaseModel):
     start: float
     end: float
     text: str
+
+class Response(BaseModel):
+    video_url: str
+    segments: List[Segment]
+    text: str
+    language: str

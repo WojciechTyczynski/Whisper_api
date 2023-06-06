@@ -64,7 +64,15 @@ def my_endpoint(Video_data: VideoInput) -> Transcription:
     # concatenate the word level timestamps into chunks of maximum Seconds or maximum words
     segmented = concat_words_into_segments(whisper_transcript, Video_data)
 
-    return segmented
+    response_transcript = Response(
+        video_url=Video_data.video_url,
+        segments=segmented,
+        text=whisper_transcript.text,
+        language=whisper_transcript.language,
+    )
+
+
+    return response_transcript
 
 
 if __name__ == "__main__":

@@ -14,6 +14,7 @@ import pathlib
 from models import *
 from utils_timing import *
 from utils_language import _detect_language, _convert_code_to_language, _convert_language_to_code
+import traceback
 
 app = FastAPI()
 
@@ -160,9 +161,12 @@ def _get_transcription(word_timestamps, audio, file_name="", language_token=None
         audio, return_timestamps=True, chunk_length_s=30, stride_length_s=[6,0], batch_size=16,
         generate_kwargs = {"task":"transcribe", "language":language_token, "no_repeat_ngram_size":5}
     )
+    logger.info("Transcription complete")
     segments_output = []
     if word_timestamps:
+        logger.info("Extracting word timestamps...")
         segments = get_segments(output_pipeline, audio, tokenizer)
+        logger.info(f"Extracted {len(segments)} segments")
         for key in segments.keys():
             text_tokens = segments[key]["tokens"]
             input_audio = processor(
@@ -188,13 +192,17 @@ def _get_transcription(word_timestamps, audio, file_name="", language_token=None
                 )
             cross_attentions = outputs.cross_attentions
             alignment_heads = get_alignment_heads(model_prefix, model)
-            word_timestamps = find_alignment(
-                cross_attentions,
-                text_tokens,
-                alignment_heads,
-                tokenizer=tokenizer,
-                segments_starts=[segments[key]["start"]],
-            )
+            logger.info(f"Finding word timestamps...")
+            try:
+                word_timestamps = find_alignment(
+                    cross_attentions,
+                    text_tokens,
+                    alignment_heads,
+                    tokenizer=tokenizer,
+                    segments_starts=[segments[key]["start"]],
+                )
+            except:
+                raise RuntimeError("Failed to find alignment")
             segments_output.append(
                 Segment(
                     start=segments[key]["start"],
@@ -204,6 +212,7 @@ def _get_transcription(word_timestamps, audio, file_name="", language_token=None
                 )
             )
     else:
+        logger.info("Word timestamps not requested")
         for chunk in output_pipeline["chunks"]:
             segments_output.append(
                 Segment(
@@ -213,12 +222,14 @@ def _get_transcription(word_timestamps, audio, file_name="", language_token=None
                 )
             )
 
+    logger.info("Creating transcription object...")
     trans = Transcription(
         file=file_name,
         segments=segments_output,
         text=output_pipeline["text"],
         language=language_token[2:-2],
     )
+    logger.info("Response created")
     return trans
 
 
@@ -262,6 +273,7 @@ async def transcribe_local_file(
         trans = _get_transcription(word_timestamps, audio=audio, file_name=localfile, language_token=language_token)
         logger.info(f'{"Language detected: "}{audio_language}')
     except Exception as e:
+        traceback.print_exc()
         logger.error(f"Failed to transcribe audio file: {e}")
         raise HTTPException(status_code=400, detail="Failed to transcribe file")
     return trans

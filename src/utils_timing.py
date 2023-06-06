@@ -239,14 +239,17 @@ def find_alignment(
     for i in range(batch_size):
         text_indices, time_indices = dtw(-matrix[i].double().cpu().numpy())
         words, word_tokens = split_tokens_on_spaces(
-            text_tokens[:-1] + [tokenizer.eos_token_id], tokenizer
+            text_tokens + [tokenizer.eos_token_id], tokenizer
         )
         word_boundaries = np.pad(np.cumsum([len(t) for t in word_tokens[:-1]]), (1, 0))
         jumps = np.pad(np.diff(text_indices), (1, 0), constant_values=1).astype(bool)
         jump_times = time_indices[jumps] / tokens_per_second
         start_times = list(jump_times[word_boundaries[:-1]])
         end_times = list(jump_times[word_boundaries[1:]])
-        merge_punctuations(words, word_tokens, start_times, end_times)
+        try:
+            merge_punctuations(words, word_tokens, start_times, end_times)
+        except:
+            raise RuntimeWarning("Failed to merge punctuations")
         timing = [
             WordTimestamp(
                 word=word,

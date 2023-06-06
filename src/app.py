@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse
 from loguru import logger
 from transformers import AutoProcessor, WhisperTokenizer, pipeline
 from whisper.audio import load_audio
-
+import pathlib
 from models import *
 from utils_timing import *
 from utils_language import _detect_language, _convert_code_to_language, _convert_language_to_code
@@ -18,7 +18,10 @@ from utils_language import _detect_language, _convert_code_to_language, _convert
 app = FastAPI()
 
 SAMPLE_RATE = 16000
-SHARED_FOLDER = "/home/mb/Whisper_api/shared"
+# SHARED_FOLDER = "/home/mb/Whisper_api/shared"
+SHARED_FOLDER = pathlib.Path("/Users/wojtek/DTU/Thesis/Shared")
+if not SHARED_FOLDER.exists():
+    raise FileNotFoundError("Shared folder not found")
 # sot_sequence = (50258, 50259, 50359)  # <|startoftranscript|><|en|><|transcribe|>
 prepend_punctuations = "\"'“¿([{-"
 append_punctuations = "\"'.。,，!！?？:：”)]}、"
@@ -250,7 +253,7 @@ async def transcribe_local_file(
             input_features = processor(audio, sampling_rate=16000,
                                return_tensors="pt").input_features.to(device)   
             languages_prob = _detect_language(device, model, tokenizer, input_features)[0]
-            language_token = max(languages_prob[0], key=languages_prob[0].get)
+            language_token = max(languages_prob, key=languages_prob.get)
             audio_language = _convert_code_to_language(language_token[2:-2])
         else:
             audio_language = language

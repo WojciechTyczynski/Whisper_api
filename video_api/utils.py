@@ -1,9 +1,11 @@
 import loguru
 import yt_dlp as youtube_dl
+from fastapi import HTTPException
 
 from models import *
 
-SHARED_FOLDER = "/home/mb/Whisper_api/shared"
+# SHARED_FOLDER = "/home/mb/Whisper_api/shared"
+SHARED_FOLDER = "/Users/wojtek/DTU/Thesis/Shared"
 logger = loguru.logger
 
 
@@ -32,9 +34,13 @@ def download_youtube_audio(url: str):
             }
         ],
     }
-    with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
-
+    try:
+        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+    except youtube_dl.utils.DownloadError as e:
+        logger.error("Error while downloading the youtube video: {}".format(e))
+        raise HTTPException(status_code=400, detail="Error while downloading the youtube video")
+    print("Downloaded the audio from the youtube video")
     # get the name of the downloaded file with wav extension
     filename = ydl.prepare_filename(ydl.extract_info(url, download=False))
     return filename

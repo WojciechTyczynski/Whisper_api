@@ -44,8 +44,9 @@ def my_endpoint(Video_data: VideoInput) -> Transcription:
 
     try:
         path = download_youtube_audio(Video_data.video_url)
-    except:
-        raise HTTPException(status_code=400, detail="Could not download the video")
+    except RuntimeError as e:
+        print(e)
+        raise HTTPException(status_code=400, detail="Could not download the video ")
 
     path = path.split(".")[0] + ".wav"
     filename = os.path.basename(path)

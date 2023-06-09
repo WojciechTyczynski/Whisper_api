@@ -27,13 +27,20 @@ def get_segments(transcription, audio, tokenizer, sample_rate: int = 16000):
     seek = 0
     current_seek = 0
     segments = {0: {"start": 0, "end": 0, "text": "", "tokens": []}}
+
+    # because we are batching, then the last timestamp is missing. We add it here
+    max_timestamp = len(audio) / sample_rate
+    last_x, _ = transcription["chunks"][-1]["timestamp"]
+    transcription["chunks"][-1]['timestamp'] = (last_x, max_timestamp)
+
     for i in range(len(transcription["chunks"])):
         seek_index = int(seek * 100)
         start, end = transcription["chunks"][i]["timestamp"]
+        if i == 166:
+            print(i)
         temp_tokens = tokenizer.encode(
             transcription["chunks"][i]["text"], add_special_tokens=False
         )
-
          # We see sometimes that the model do hallucinate and repeat the same sentence over and over
         # We try to detect this by looking at the length of the tokens and if it is > 448 we try to
         # get the substring of repeated characters in the sentence and encode it again.

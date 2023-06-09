@@ -20,7 +20,7 @@ app = FastAPI()
 
 SAMPLE_RATE = 16000
 # SHARED_FOLDER = "/home/mb/Whisper_api/shared"
-SHARED_FOLDER = pathlib.Path("/Users/wojtek/DTU/Thesis/Shared")
+SHARED_FOLDER = pathlib.Path("/home/mb/Whisper_api/shared")
 if not SHARED_FOLDER.exists():
     raise FileNotFoundError("Shared folder not found")
 # sot_sequence = (50258, 50259, 50359)  # <|startoftranscript|><|en|><|transcribe|>
@@ -158,7 +158,7 @@ async def transcribe_file(
 def _get_transcription(word_timestamps, audio, file_name="", language_token=None):
     logger.info("Transcribing audio file...")
     output_pipeline = pipe(
-        audio, return_timestamps=True, chunk_length_s=30, stride_length_s=[6,0], batch_size=16,
+        audio, return_timestamps=True, chunk_length_s=30, stride_length_s=[6,2], batch_size=16,
         generate_kwargs = {"task":"transcribe", "language":language_token, "no_repeat_ngram_size":5}
     )
     logger.info("Transcription complete")
@@ -192,7 +192,6 @@ def _get_transcription(word_timestamps, audio, file_name="", language_token=None
                 )
             cross_attentions = outputs.cross_attentions
             alignment_heads = get_alignment_heads(model_prefix, model)
-            logger.info(f"Finding word timestamps...")
             try:
                 word_timestamps = find_alignment(
                     cross_attentions,

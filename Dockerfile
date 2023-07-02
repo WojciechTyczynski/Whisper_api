@@ -1,21 +1,20 @@
-# Base image
-FROM python:3.9
-
+FROM nvidia/cuda:12.2.0-base-ubuntu20.04
 RUN apt-get -y update
 RUN apt-get -y upgrade
 RUN apt-get install -y ffmpeg
+RUN apt-get install -y python3 python3-pip
 
 # Change working directory
-WORKDIR /whisper_api
+WORKDIR /code
 
 # Copy requirements.txt
-COPY ./requirements.txt /whisper_api/requirements.txt
+COPY ./requirements.txt /code/requirements.txt
 
 # 
-RUN pip install --no-cache-dir --upgrade -r /whisper_api/requirements.txt
+RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 # 
-COPY ./src /whisper_api/src
+COPY ./src /code/app
 
 # 
-CMD ["uvicorn", "src.app:app", "--host", "0.0.0.0", "--port", "80"]
+CMD ["uvicorn", "app.app:app", "--host", "0.0.0.0", "--port", "8080"]

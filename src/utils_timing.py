@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from models import *
+from .models import *
 def get_substringofrepeatedchars(string):
     """
     Function to get the substring of repeated characters in a string.

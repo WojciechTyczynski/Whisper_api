@@ -4,23 +4,23 @@ from typing import BinaryIO, List
 import ffmpeg
 import numpy as np
 import uvicorn
-import whisper
+# import whisper
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
 from loguru import logger
 from transformers import AutoProcessor, WhisperTokenizer, pipeline
 from whisper.audio import load_audio
 import pathlib
-from models import *
-from utils_timing import *
-from utils_language import _detect_language, _convert_code_to_language, _convert_language_to_code
+from .models import *
+from .utils_timing import *
+from .utils_language import _detect_language, _convert_code_to_language, _convert_language_to_code
 import traceback
 
 app = FastAPI()
 
 SAMPLE_RATE = 16000
 # SHARED_FOLDER = "/home/mb/Whisper_api/shared"
-SHARED_FOLDER = pathlib.Path("/home/mb/Whisper_api/shared")
+SHARED_FOLDER = pathlib.Path("/shared")
 if not SHARED_FOLDER.exists():
     raise FileNotFoundError("Shared folder not found")
 # sot_sequence = (50258, 50259, 50359)  # <|startoftranscript|><|en|><|transcribe|>
@@ -31,6 +31,8 @@ if torch.cuda.is_available():
     device = "cuda:0"
 else:
     device = "cpu"
+
+logger.info(f"Using device {device}")
 
 # Load whisper model
 pipe = pipeline(

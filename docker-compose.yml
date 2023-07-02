@@ -1,0 +1,16 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - DataVolume1:/shared
+
+volumes:
+  DataVolume1:
+      driver: local
+
+
+
+# docker volume create --name DataVolume1
+# docker run -ti --name=Container1 -v DataVolume1:/datavolume1 ubuntu

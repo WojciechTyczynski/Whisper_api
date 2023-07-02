@@ -1,11 +1,17 @@
 services:
   web:
     build: .
-    ports:
-      - "8080:8080"
     volumes:
       - DataVolume1:/shared
-
+    ports:
+      - "8080:8080"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 volumes:
   DataVolume1:
       driver: local

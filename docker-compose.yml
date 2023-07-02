@@ -1,10 +1,13 @@
 services:
-  web:
+  asr-api:
     build: .
     volumes:
       - DataVolume1:/shared
     ports:
       - "8080:8080"
+    networks:
+      vpcbr:
+        ipv4_address: 10.5.0.5
     deploy:
       resources:
         reservations:
@@ -12,11 +15,29 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+            
+  connector-api:
+    build: video_api/.
+    volumes:
+      - DataVolume1:/shared
+    ports:
+      - "8000:8000"
+    networks:
+      vpcbr:
+        ipv4_address: 10.5.0.6
+
+
 volumes:
   DataVolume1:
       driver: local
 
 
-
+networks:
+  vpcbr:
+    driver: bridge
+    ipam:
+     config:
+       - subnet: 10.5.0.0/16
+         gateway: 10.5.0.1
 # docker volume create --name DataVolume1
 # docker run -ti --name=Container1 -v DataVolume1:/datavolume1 ubuntu

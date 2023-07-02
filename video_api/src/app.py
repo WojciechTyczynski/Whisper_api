@@ -4,14 +4,14 @@ import re
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from utils import concat_words_into_segments, download_youtube_audio
-from WhisperApiHandler import WhisperApiHandler
-
-from models import *
+from .utils import concat_words_into_segments, download_youtube_audio
+from .WhisperApiHandler import WhisperApiHandler
+from loguru import logger
+from .models import *
 
 app = FastAPI()
 
-whisper_api = WhisperApiHandler("http://localhost:8000")
+whisper_api = WhisperApiHandler("http://10.5.0.5:8080")
 
 # Define health endpoint
 @app.get("/health")
@@ -20,7 +20,7 @@ def health():
 
 
 @app.post("/api/Video/transcribe")
-def my_endpoint(Video_data: VideoInput) -> Transcription:
+def my_endpoint(Video_data: VideoInput) -> Response:
     """
     Takes a link to a video from the user and returns a transcript of the video.
     Transcripts are concatenated into chunks of maximum Seconds seconds.
@@ -51,6 +51,7 @@ def my_endpoint(Video_data: VideoInput) -> Transcription:
     path = path.split(".")[0] + ".wav"
     filename = os.path.basename(path)
     # get the transcription
+    logger.info("Getting the transcription from whisper")
     response = whisper_api.get_transcription(filename, True)
     if response.status_code != 200:
         os.remove(path)
@@ -63,7 +64,7 @@ def my_endpoint(Video_data: VideoInput) -> Transcription:
 
     # concatenate the word level timestamps into chunks of maximum Seconds or maximum words
     segmented = concat_words_into_segments(whisper_transcript, Video_data)
-
+    logger.info("Transcription done")
     response_transcript = Response(
         video_url=Video_data.video_url,
         segments=segmented,

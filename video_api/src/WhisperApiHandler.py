@@ -1,5 +1,5 @@
 import requests
-
+from loguru import logger
 
 class WhisperApiHandler:
     def __init__(self, url):

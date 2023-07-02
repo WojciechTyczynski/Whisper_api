@@ -2,10 +2,10 @@ import loguru
 import yt_dlp as youtube_dl
 from fastapi import HTTPException
 
-from models import *
+from .models import *
 
 # SHARED_FOLDER = "/home/mb/Whisper_api/shared"
-SHARED_FOLDER = "/Users/wojtek/DTU/Thesis/Shared"
+SHARED_FOLDER = "/shared"
 logger = loguru.logger
 
 

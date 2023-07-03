@@ -1,25 +1,32 @@
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel
 
 
-class VideoInput(BaseModel):
-    video_url: str
-    seconds: int = 60
+# Define response model
+class WordTimestamp(BaseModel):
+    word: str
+    tokens: List[int]
+    start: float
+    end: float
 
 
 class Segment(BaseModel):
-    start: int
-    end: int
+    start: float
+    end: float
     text: str
-    tokens: list
+    words: Optional[List[WordTimestamp]] = None
 
 
 class Transcription(BaseModel):
-    url: str
+    file: str
     segments: List[Segment]
     text: str
     language: str
+
+
+class TranscriptionList(BaseModel):
+    transcriptions: List[Transcription]
 
 
 class WhisperSegments(BaseModel):
@@ -29,6 +36,7 @@ class WhisperSegments(BaseModel):
     end: float
     text: str
     tokens: List[int]
+    words: Optional[List[WordTimestamp]] = None
     temperature: float
     avg_logprob: float
     compression_ratio: float

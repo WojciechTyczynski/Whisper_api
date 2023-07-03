@@ -1,6 +1,6 @@
 services:
   asr-api:
-    build: .
+    build: asr_api/.
     volumes:
       - DataVolume1:/shared
     ports:
@@ -17,7 +17,7 @@ services:
               capabilities: [gpu]
             
   connector-api:
-    build: video_api/.
+    build: connector_api/.
     volumes:
       - DataVolume1:/shared
     ports:

@@ -4,7 +4,6 @@ from typing import BinaryIO, List
 import ffmpeg
 import numpy as np
 import uvicorn
-# import whisper
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
 from loguru import logger

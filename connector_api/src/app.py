@@ -58,7 +58,10 @@ def my_endpoint(Video_data: VideoInput) -> Response:
         raise HTTPException(status_code=400, detail="Could not transcribe the video")
 
     # remove the file from the shared folder
-    os.remove(path)
+    try:
+        os.remove(path)
+    except OSError as e:
+        logger.error(f"failed to remove the file {path} from the shared folder")
 
     whisper_transcript = Transcription(**response.json())
 

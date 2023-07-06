@@ -8,3 +8,4 @@ transformers==4.30.2
 uvicorn==0.22.0
 whisper-openai
 python-multipart
+peft

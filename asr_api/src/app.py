@@ -14,6 +14,9 @@ from .models import *
 from .utils_timing import *
 from .utils_language import _detect_language, _convert_code_to_language, _convert_language_to_code
 import traceback
+from peft import PeftModel
+from copy import deepcopy
+
 
 app = FastAPI()
 
@@ -39,11 +42,19 @@ pipe = pipeline(
     model="openai/whisper-base",
     device=device,
 )
-model = pipe.model.to(device)
+model = deepcopy(pipe.model)
 tokenizer = pipe.tokenizer
 processor = AutoProcessor.from_pretrained("openai/whisper-base")
 
 SPECIAL_TOKENS = {k:v for k, v in zip(tokenizer.all_special_tokens ,tokenizer.all_special_ids)}
+
+
+peft_finetune_dict = {
+    "da" : "koldborg/whisper-base-Danish"
+}
+
+
+
 
 def _load_audio_file(file: BinaryIO, sr: int = SAMPLE_RATE):
     """
@@ -103,6 +114,7 @@ async def main():
     return HTMLResponse(content=content)
 
 
+
 # Define endpoint to transcribe a file
 @app.post("/transcribe/")
 async def transcribe_file(
@@ -128,17 +140,7 @@ async def transcribe_file(
         try:
             audio = _load_audio_file(audio_file.file)
             logger.info("Audio file converted")
-            if language is None:
-                input_features = processor(audio, sampling_rate=16000,
-                               return_tensors="pt").input_features.to(device)   
-                languages_prob = _detect_language(device, model, tokenizer, input_features)[0]
-                language_token = max(languages_prob, key=languages_prob.get)
-                audio_language = _convert_code_to_language(language_token[2:-2])
-            else:
-                audio_language = language
-                language_token = "<|" + _convert_language_to_code(audio_language) + "|>"
-            logger.info(f'{"Language detected: "}{audio_language}')
-            logger.info(f'{"Language token: "}{language_token}')
+            language_token, audio_language = get_language(language, audio)
             tokenizer.set_prefix_tokens(language=audio_language)
             trans = _get_transcription(
                 word_timestamps, audio=audio, file_name=audio_file.filename, language_token=language_token
@@ -158,6 +160,17 @@ async def transcribe_file(
 
 def _get_transcription(word_timestamps, audio, file_name="", language_token=None):
     logger.info("Transcribing audio file...")
+
+    if language_token[2:-2] in peft_finetune_dict.keys():
+        logger.info("Loading PEFT model...")
+        peft_model = PeftModel.from_pretrained(deepcopy(model), peft_finetune_dict[language_token[2:-2]])
+        pipe.model = peft_model
+        print(pipe.model)
+    else:
+        logger.info("Using base model...")
+        pipe.model = model
+        print(pipe.model)   
+
     output_pipeline = pipe(
         audio, return_timestamps=True, chunk_length_s=30, stride_length_s=[6,2], batch_size=16,
         generate_kwargs = {"task":"transcribe", "language":language_token, "no_repeat_ngram_size":5}
@@ -260,23 +273,29 @@ async def transcribe_local_file(
     # load audio file
     audio = load_audio(path)
     try:
-        if language is None:
-            input_features = processor(audio, sampling_rate=16000,
-                               return_tensors="pt").input_features.to(device)   
-            languages_prob = _detect_language(device, model, tokenizer, input_features)[0]
-            language_token = max(languages_prob, key=languages_prob.get)
-            audio_language = _convert_code_to_language(language_token[2:-2])
-        else:
-            audio_language = language
-            language_token = "<|" + _convert_language_to_code(audio_language) + "|>"
+        language_token, audio_language = get_language(language, audio)
         tokenizer.set_prefix_tokens(language=audio_language)
         trans = _get_transcription(word_timestamps, audio=audio, file_name=localfile, language_token=language_token)
-        logger.info(f'{"Language detected: "}{audio_language}')
     except Exception as e:
         traceback.print_exc()
         logger.error(f"Failed to transcribe audio file: {e}")
         raise HTTPException(status_code=400, detail="Failed to transcribe file")
     return trans
+
+def get_language(language, audio):
+    if language is None:
+        input_features = processor(audio, sampling_rate=16000,
+                               return_tensors="pt").input_features.to(device)   
+        languages_prob = _detect_language(device, model, tokenizer, input_features)[0]
+        language_token = max(languages_prob, key=languages_prob.get)
+        audio_language = _convert_code_to_language(language_token[2:-2])
+    else:
+        audio_language = language
+        language_token = "<|" + _convert_language_to_code(audio_language) + "|>"
+
+    logger.info(f'{"Language detected: "}{audio_language}')
+    logger.info(f'{"Language token: "}{language_token}')
+    return language_token,audio_language
 
 
 @app.post("/uploadfile/")

@@ -1,4 +1,4 @@
-# Whisper api
+# Whisper API
 This repository has 2 API's. The first is the ASR API, that loads a Huggingface Whisper model and gives the possibilty to transcribe an audio file. 
 The other is a Connector API, which can download the audio from a youtube video and get the transcription by using the ASR Api.
 
